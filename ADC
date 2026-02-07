@@ -1,0 +1,36 @@
+import ADS1256
+import time
+
+try:
+    print("--- ADC INPUT TEST ---")
+    
+    # 1. Initialize the Board
+    ADC = ADS1256.ADS1256()
+    ADC.ADS1256_init()
+
+    while True:
+        # 2. Read All Channels (0 - 7)
+        # Get raw 24-bit value (0 to 8388607)
+        raw_0 = ADC.ADS1256_GetChannalValue(0) # Potentiometer
+        raw_1 = ADC.ADS1256_GetChannalValue(1) # LDR / Light
+        raw_2 = ADC.ADS1256_GetChannalValue(2) # Your Sensor 1
+        raw_3 = ADC.ADS1256_GetChannalValue(3) # Your Sensor 2
+
+        # 3. Convert to Voltage
+        volt_0 = raw_0 * 5.0 / 0x7fffff
+        volt_1 = raw_1 * 5.0 / 0x7fffff
+        volt_2 = raw_2 * 5.0 / 0x7fffff
+        volt_3 = raw_3 * 5.0 / 0x7fffff
+
+        # 4. Print
+        print("\033[H\033[J") # Clear screen
+        print(f"AIN0 (Knob)   : {volt_0:.4f} V")
+        print(f"AIN1 (Light)  : {volt_1:.4f} V")
+        print(f"AIN2 (Sensor) : {volt_2:.4f} V")
+        print(f"AIN3 (Sensor) : {volt_3:.4f} V")
+        print("-" * 30)
+        
+        time.sleep(0.5)
+
+except KeyboardInterrupt:
+    print("\nStopped.")
