@@ -1,0 +1,181 @@
+How this script works
+Starts up: It asks you once to type the voltage you want the DAC to output.
+Sets the DAC: It forces the DAC output to that voltage immediately using the "Direct Hardware" method (to bypass OS conflicts).
+Enters a Loop: Every 3 seconds, it:
+Reads the ADC (Sensors).
+Prints the DAC status and ADC readings to the screen.
+Saves everything (Timestamp, DAC Volts, ADC Volts) to a file named full_log.csv.
+Step 1: Location
+Crucial: You must save this file inside the Waveshare folder so it can find the ADS1256 library.
+Path: ~/High-Precision-AD-DA-Board/RaspberryPI/ADS1256/python3/
+Step 2: The Code
+Save this as dac_adc_combined.py.
+
+*******************************************************Python code starts **********************************************************
+
+
+
+import ADS1256
+import spidev
+import lgpio
+import time
+import csv
+import os
+from datetime import datetime
+
+# ==========================================
+#              CONFIGURATION
+# ==========================================
+# DAC Settings
+DAC_CS_PIN = 23       # GPIO 23 for DAC Chip Select
+VREF = 5.0            # Reference Voltage (Check Yellow Jumper!)
+
+# ADC Settings
+ADC_CHANNEL_0 = 0     # AIN0 (Potentiometer)
+ADC_CHANNEL_1 = 1     # AIN1 (Light Sensor)
+ADC_CHANNEL_2 = 2     # AIN2 (External Sensor)
+
+# Logging
+CSV_FILE = "full_log.csv"
+INTERVAL = 3          # Seconds
+
+# ==========================================
+#           HELPER FUNCTIONS
+# ==========================================
+
+def set_dac_raw(voltage):
+    """
+    Directly writes to DAC using lgpio and spidev to avoid library conflicts.
+    """
+    if voltage > VREF: voltage = VREF
+    if voltage < 0: voltage = 0
+
+    # 1. Setup GPIO for DAC CS
+    h = lgpio.gpiochip_open(0)
+    try:
+        lgpio.gpio_claim_output(h, DAC_CS_PIN)
+    except:
+        pass # Already claimed is fine
+    
+    # 2. Setup SPI
+    spi = spidev.SpiDev()
+    spi.open(0, 0)
+    spi.max_speed_hz = 1000000
+    spi.mode = 0b01
+
+    # 3. Calculate and Send
+    val = int((voltage / VREF) * 65535)
+    msb = (val >> 8) & 0xFF
+    lsb = val & 0xFF
+    
+    # Send to Channel A and B
+    for cmd in [0x30, 0x34]:
+        lgpio.gpio_write(h, DAC_CS_PIN, 0) # CS Low
+        spi.xfer([cmd, msb, lsb])
+        lgpio.gpio_write(h, DAC_CS_PIN, 1) # CS High
+
+    # Cleanup SPI to let ADC use it later
+    spi.close()
+    lgpio.gpiochip_close(h)
+    return voltage
+
+def init_csv():
+    """Creates the CSV file with headers if it doesn't exist."""
+    if not os.path.isfile(CSV_FILE):
+        with open(CSV_FILE, mode='w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(["Timestamp", "DAC_Output_V", "ADC0_Knob_V", "ADC1_Light_V", "ADC2_Sensor_V"])
+        print(f"[INFO] Created new log file: {CSV_FILE}")
+
+# ==========================================
+#              MAIN PROGRAM
+# ==========================================
+
+try:
+    print("--- COMBINED DAC & ADC LOGGER ---")
+    
+    # 1. Initialize ADC Library
+    print("[1] Initializing ADC...")
+    ADC = ADS1256.ADS1256()
+    ADC.ADS1256_init()
+
+    # 2. Initialize CSV
+    init_csv()
+
+    # 3. Ask User for DAC Voltage
+    print("-" * 40)
+    user_input = input(f"Enter Voltage to Output (0 - {VREF}): ")
+    try:
+        dac_setpoint = float(user_input)
+    except ValueError:
+        dac_setpoint = 0.0
+        print("Invalid input, defaulting to 0V")
+
+    # 4. Set the DAC Voltage
+    print(f"[2] Setting DAC to {dac_setpoint} V...")
+    set_dac_raw(dac_setpoint)
+
+    print("-" * 40)
+    print(f"Starting Loop... (Press Ctrl+C to stop)")
+    print(f"Logging every {INTERVAL} seconds to {CSV_FILE}")
+    print("-" * 40)
+
+    while True:
+        # --- A. READ ADC ---
+        # Read raw values
+        raw0 = ADC.ADS1256_GetChannalValue(ADC_CHANNEL_0)
+        raw1 = ADC.ADS1256_GetChannalValue(ADC_CHANNEL_1)
+        raw2 = ADC.ADS1256_GetChannalValue(ADC_CHANNEL_2)
+
+        # Convert to Voltage
+        v0 = raw0 * 5.0 / 0x7fffff
+        v1 = raw1 * 5.0 / 0x7fffff
+        v2 = raw2 * 5.0 / 0x7fffff
+
+        # --- B. PREPARE DATA ---
+        now = datetime.now()
+        timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
+
+        # --- C. PRINT TO SCREEN ---
+        print(f"[{timestamp}]")
+        print(f"   OUTPUT: DAC Setpoint = {dac_setpoint:.3f} V")
+        print(f"   INPUTS: Knob={v0:.3f}V | Light={v1:.3f}V | Sensor={v2:.3f}V")
+        
+        # --- D. SAVE TO CSV ---
+        with open(CSV_FILE, mode='a', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow([timestamp, dac_setpoint, v0, v1, v2])
+
+        # --- E. WAIT ---
+        time.sleep(INTERVAL)
+
+except KeyboardInterrupt:
+    print("\nProgram Stopped.")
+    print(f"Data saved in {CSV_FILE}")
+
+except Exception as e:
+    print(f"\nError: {e}")
+
+
+
+**********************************************************************************************END python code******************************************************************************
+
+
+
+
+
+
+
+Instructions to Run
+Connect Hardware:
+VREF Jumper -> 5V.
+DA0 -> LEDA (Visual check).
+External Sensor -> AD2 (Input).
+Run:
+Open the file in Thonny.
+Click Run.
+Type 2.5 (or any voltage) and hit Enter.
+Verify:
+Red LEDs will turn on (brightness depends on your input).
+Console will update every 3 seconds with the input readings.
+CSV: Open the folder .../ADS1256/python3/ and you will see full_log.csv.
