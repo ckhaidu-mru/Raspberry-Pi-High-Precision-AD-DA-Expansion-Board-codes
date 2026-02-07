@@ -1,65 +1,86 @@
-1. SPI Interface Enablement
+"""
+WAVESHARE HIGH-PRECISION AD/DA BOARD
+Setup and Usage Guide (Raspberry Pi OS "Bookworm")
 
-The AD/DA board communicated using SPI, which was disabled by default.
+This guide provides instructions for setting up the Waveshare High-Precision AD/DA Board
+on a Raspberry Pi. It includes steps to enable the necessary interfaces, install dependencies,
+and run the ADC (Input) and DAC (Output) scripts provided in this repository.
+
+------------------------------------------------------------
+1. HARDWARE CONFIGURATION (CRUCIAL)
+------------------------------------------------------------
+Before powering on the Raspberry Pi, ensure the yellow jumpers on the board are set correctly.
+If these are missing, the board will not function.
+
+- VCC: Connect to 5V
+- VREF: Connect to 5V (Sets reference voltage; without it, readings will be 0)
+- CS0 & CS1: Ensure both are connected
+- DA0 & DA1: Connect to LEDA and LEDB (visualize DAC output)
+- ADJ -> AD0: Enables the blue potentiometer
+- LDR -> AD1: Enables the light sensor
+
+------------------------------------------------------------
+2. SPI INTERFACE ENABLEMENT
+------------------------------------------------------------
+The board communicates using SPI, which is disabled by default.
 
 Steps:
+1. Open terminal and run:
+   sudo raspi-config
+2. Navigate to Interface Options -> SPI
+3. Select Yes to enable SPI
+4. Exit and reboot if prompted
 
--sudo raspi-config
-
--Select Interface Options
-
--Select SPI
-
--Enable SPI
-
--Exit and apply changes
-
-2. System Update and Library Installation
-
-The required packages were installed:
-
-lgpio for GPIO control, spidev for SPI communication,git to download the driver files
-
-Commands:
+------------------------------------------------------------
+3. SYSTEM UPDATE AND LIBRARY INSTALLATION
+------------------------------------------------------------
+Install required packages:
 
 sudo apt update
 sudo apt install python3-lgpio python3-spidev git -y
 
-3. Driver File Download
+Notes:
+- lgpio → GPIO control (required for newer OS versions)
+- spidev → SPI communication
+- git → download driver files
 
-The official Waveshare repository was cloned to obtain the ADC support files.
-Commands:
+------------------------------------------------------------
+4. DRIVER FILE SETUP
+------------------------------------------------------------
+Clone Waveshare repository to obtain required files:
+
 cd ~
 git clone https://github.com/waveshareteam/High-Precision-AD-DA-Board
 
-Now its done , and you can test the codes.
+------------------------------------------------------------
+5. RUNNING THE DAC TEST (OUTPUT)
+------------------------------------------------------------
+The dac_direct.py script communicates directly with the chip, bypassing library conflicts.
 
-4.DAC Output Test
-Procedure: 
-
--Thonny IDE was opened.
--A new file was saved as dac_direct.py.( the DAC file in the repo)
--The script was executed.
+Procedure:
+1. Download dac_direct.py from this repository
+2. Open in Thonny IDE (or terminal)
+3. Run the script
 
 Expected Result:
-Red LEDs turned on.(DAC ones; look carefully you will see the led named da1 , da0)
-Output voltage was measurable on DA0 or DA1.
-Voltage pulsed smoothly between 0 V and the reference voltage.( you can measure with voltmeter)
+- Red LEDs (LEDA / LEDB) turn on
+- Voltage measured with voltmeter matches printed value
 
+------------------------------------------------------------
+6. RUNNING THE ADC TEST (INPUT)
+------------------------------------------------------------
+The ADC script requires ADS1256.py from the cloned repository.
+Run it from inside the Waveshare folder to avoid "Module Not Found" errors.
 
-5. ADC Input Test
- You cannot run this code from the Desktop. It must be saved inside the Waveshare folder because it relies on ADS1256.py being right next to it.So, Download the waveshare example codes itself from its website.
+Steps:
+1. Navigate to Python folder:
+   cd ~/High-Precision-AD-DA-Board/RaspberryPI/ADS1256/python3/
+2. Save adc_test.py in this folder
+3. Run via terminal:
+   python3 adc_test.py
+   OR open in Thonny IDE and run
 
- 1. Create the file in the correct location:
-Open Terminal and navigate to the folder:
-code
-Bash
-cd ~/High-Precision-AD-DA-Board/RaspberryPI/ADS1256/python3/
-2. Open Thonny from this location:
-(Or open Thonny normally, click Save As, and navigate to /home/username/High-Precision-AD-DA-Board/RaspberryPI/ADS1256/python3/).
-3. Save this code as adc_test.py in that folder.( see ADC files codes in this repo)
-4. Run the code  and apply voltage to the DAC, you will see the output on screen in thonny ide. the voltages present already like 1.17 V is normal and wil dissapear once you apply a a voltage to it. remember to use GND, or AGND when necessary.
-
-
-
-
+Expected Result:
+- Screen displays voltage values for all 8 channels
+- Channels not connected may show floating values (~1.17V)
+"""
